@@ -18,6 +18,7 @@ import hashlib
 import argparse
 import logging
 import time
+import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Any
@@ -386,23 +387,37 @@ def generate_item_id(item: Dict[str, Any], source: str, source_date: str) -> str
 
 
 def format_frontmatter(metadata: Dict[str, Any]) -> str:
-    """Format YAML frontmatter for Obsidian note."""
-    lines = ["---"]
-    for key, value in metadata.items():
-        if isinstance(value, list):
+    """Format YAML frontmatter for Obsidian note using proper YAML serialization."""
+    try:
+        # Use PyYAML for proper YAML serialization
+        yaml_content = yaml.safe_dump(metadata, default_flow_style=False, allow_unicode=True)
+        return f"---\n{yaml_content}---"
+    except Exception as e:
+        logger.error(f"Failed to serialize frontmatter to YAML: {e}")
+        # Fallback to simple serialization
+        lines = ["---"]
+        for key, value in metadata.items():
             lines.append(f"{key}: {json.dumps(value)}")
-        elif isinstance(value, str):
-            # Escape special characters in strings for YAML
-            escaped_value = value.replace('"', '\\"')
-            lines.append(f'{key}: "{escaped_value}"')
-        else:
-            lines.append(f"{key}: {value}")
-    lines.append("---")
-    return "\n".join(lines)
+        lines.append("---")
+        return "\n".join(lines)
 
 
 def sanitize_filename(text: str, max_length: int = MAX_FILENAME_LENGTH) -> str:
-    """Sanitize text for safe filename usage, preventing path traversal."""
+    """Sanitize text for safe filename usage, preventing path traversal and reserved names.
+    
+    Handles:
+    - Path separators and null bytes
+    - Windows reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+    - Hidden files (starting with dot)
+    - Special characters
+    """
+    # Windows reserved names (case-insensitive)
+    RESERVED_NAMES = {
+        'CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5',
+        'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4',
+        'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+    }
+    
     # Remove any path separators and null bytes
     safe_text = text.replace("/", "-").replace("\\", "-").replace("\0", "")
     # Keep only alphanumeric, spaces, hyphens, and underscores
@@ -412,10 +427,19 @@ def sanitize_filename(text: str, max_length: int = MAX_FILENAME_LENGTH) -> str:
     # Remove multiple consecutive hyphens
     while "--" in safe_text:
         safe_text = safe_text.replace("--", "-")
+    # Remove leading dots to prevent hidden files
+    safe_text = safe_text.lstrip(".")
     # Trim to max length
     safe_text = safe_text[:max_length].strip("-")
     # Ensure we have at least something
-    return safe_text if safe_text else "unnamed"
+    safe_text = safe_text if safe_text else "unnamed"
+    
+    # Check for Windows reserved names
+    base_name = safe_text.upper().split('.')[0]  # Get name without extension
+    if base_name in RESERVED_NAMES:
+        safe_text = f"file-{safe_text}"
+    
+    return safe_text
 
 def write_staged_item(
     item: Dict[str, Any],
@@ -537,11 +561,26 @@ item_count: {len(extraction.get("items", []))}
 # ============================================================================
 
 def validate_file_path(filepath: Path, vault_path: Path) -> bool:
-    """Validate that file path is within vault directory to prevent path traversal."""
+    """Validate that file path is within vault directory to prevent path traversal.
+    
+    Uses proper path ancestry checking that works correctly with symlinks and
+    case-insensitive filesystems.
+    """
     try:
         resolved_file = filepath.resolve()
         resolved_vault = vault_path.resolve()
-        return str(resolved_file).startswith(str(resolved_vault))
+        
+        # Python 3.9+ has is_relative_to method
+        if hasattr(resolved_file, 'is_relative_to'):
+            return resolved_file.is_relative_to(resolved_vault)
+        
+        # Fallback for Python 3.8 and earlier
+        try:
+            resolved_file.relative_to(resolved_vault)
+            return True
+        except ValueError:
+            return False
+            
     except (OSError, RuntimeError):
         return False
 
@@ -669,10 +708,17 @@ def run_pipeline(dry_run: bool = False, single_file: Optional[str] = None) -> No
         logger.error("Set it with: export ANTHROPIC_API_KEY='your-key-here'")
         return
     
-    # Validate API key format (basic check)
+    # Validate API key format (comprehensive check)
     if api_key and not dry_run:
         if not api_key.startswith("sk-ant-"):
             logger.warning("API key may be invalid - expected format: sk-ant-...")
+        # Anthropic API keys are typically around 100+ characters
+        if len(api_key) < 50:
+            logger.warning("API key appears truncated - Anthropic keys are typically 100+ characters")
+        # Check for common mistakes
+        if " " in api_key or "\n" in api_key or "\t" in api_key:
+            logger.error("API key contains whitespace - this is likely incorrect")
+            return
     
     client = anthropic.Anthropic(api_key=api_key) if api_key else None
     

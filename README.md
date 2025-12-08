@@ -161,6 +161,26 @@ Edit `prompts/extraction_prompt.py` to tune what gets extracted.
 - **Calendar**: Timeline view of extractions
 - **Obsidian Git**: Version control your vault
 
+## Development
+
+This project follows strict coding standards and includes a comprehensive test suite.
+
+### Running Tests
+To run the automated tests:
+```bash
+# Install testing dependencies
+pip install pytest pytest-cov
+
+# Run all tests
+pytest
+
+# Run tests with coverage report
+pytest --cov=obsidian-pipeline
+For detailed development guidelines, please see CONTRIBUTING.md.
+
+Security
+This project takes security seriously. For details on how we handle file paths, API keys, and data, please see SECURITY.md.
+
 ## Roadmap (Future Phases)
 
 - [ ] Phase 2: Routing logic (auto-merge themes/actions, stage decisions/insights)

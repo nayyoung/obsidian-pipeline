@@ -38,6 +38,12 @@ Add to your shell profile (~/.zshrc or ~/.bashrc) to persist:
 echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.zshrc
 ```
 
+**Security Note:** 
+- Never commit your API key to version control
+- Keep your API key private and rotate it if exposed
+- The pipeline validates that your key starts with `sk-ant-` for safety
+- Use environment variables, never hardcode keys in source files
+
 ### 3. Configure Vault Path
 
 Edit `pipeline.py` and `setup_vault.py` to set your vault location:
@@ -166,13 +172,28 @@ Edit `prompts/extraction_prompt.py` to tune what gets extracted.
 **"ANTHROPIC_API_KEY not set"**
 Make sure you exported the key in your current terminal session.
 
+**"API key may be invalid"**
+The pipeline expects keys starting with `sk-ant-`. Verify your key is correct.
+
 **JSON parsing errors**
-The API sometimes returns malformed JSON. Check the raw response in the error message.
+The API sometimes returns malformed JSON. The pipeline will retry up to 3 times with exponential backoff.
+
+**API rate limit errors**
+The pipeline includes automatic retry logic. If you hit rate limits frequently, consider:
+- Processing fewer files at once
+- Adding delays between batches
+- Upgrading your API tier
 
 **Files not being detected**
 - Ensure files are `.txt` extension
 - Check they're in the correct inbox folder
 - Run with `--dry-run` to see what's detected
+
+**Path security errors**
+For security, the pipeline only processes files within your vault directory. If you see path validation errors, ensure your file is in the correct location.
+
+**File I/O errors**
+Check file permissions and ensure your vault path is correctly configured in `pipeline.py`.
 
 ## Cost Estimate
 

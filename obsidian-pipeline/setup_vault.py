@@ -6,7 +6,16 @@ for the Mind Map Pipeline.
 Run this once to create all necessary folders.
 """
 
+import logging
 from pathlib import Path
+from datetime import datetime
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Update this to your vault location
 VAULT_PATH = Path.home() / "ObsidianVault"
@@ -25,13 +34,17 @@ FOLDERS = [
 ]
 
 def setup_vault():
-    print(f"Setting up Obsidian vault at: {VAULT_PATH}")
-    print("-" * 50)
+    logger.info(f"Setting up Obsidian vault at: {VAULT_PATH}")
+    logger.info("-" * 50)
     
     for folder in FOLDERS:
         folder_path = VAULT_PATH / folder
-        folder_path.mkdir(parents=True, exist_ok=True)
-        print(f"  ✓ Created: {folder}")
+        try:
+            folder_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"  ✓ Created: {folder}")
+        except (IOError, OSError) as e:
+            logger.error(f"  ✗ Failed to create {folder}: {e}")
+            continue
     
     # Create starter Bible file
     bible_path = VAULT_PATH / "06-Bibles" / "Gumroad_Launch_Bible.md"
@@ -62,14 +75,17 @@ _What still needs to be figured out?_
 ## Resources
 _Links, references, related notes_
 """
-        from datetime import datetime
-        bible_path.write_text(bible_content.format(date=datetime.now().strftime("%Y-%m-%d")))
-        print(f"  ✓ Created starter Bible: {bible_path.name}")
+        try:
+            bible_path.write_text(bible_content.format(date=datetime.now().strftime("%Y-%m-%d")))
+            logger.info(f"  ✓ Created starter Bible: {bible_path.name}")
+        except (IOError, OSError) as e:
+            logger.error(f"  ✗ Failed to create starter Bible: {e}")
     
     # Create .gitignore if using git
     gitignore_path = VAULT_PATH / ".gitignore"
     if not gitignore_path.exists():
-        gitignore_path.write_text("""# Obsidian
+        try:
+            gitignore_path.write_text("""# Obsidian
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
 .obsidian/plugins/*/data.json
@@ -81,16 +97,18 @@ Thumbs.db
 # Backup files
 *.bak
 """)
-        print(f"  ✓ Created: .gitignore")
+            logger.info(f"  ✓ Created: .gitignore")
+        except (IOError, OSError) as e:
+            logger.error(f"  ✗ Failed to create .gitignore: {e}")
     
-    print("-" * 50)
-    print("Setup complete!")
-    print(f"\nNext steps:")
-    print(f"1. Open {VAULT_PATH} as a vault in Obsidian")
-    print(f"2. Install recommended plugins: Dataview, Tasks, Templater")
-    print(f"3. Update 06-Bibles/Gumroad_Launch_Bible.md with your actual context")
-    print(f"4. Save conversation exports to 00-Inbox/[source]/ folders")
-    print(f"5. Run: python pipeline.py")
+    logger.info("-" * 50)
+    logger.info("Setup complete!")
+    logger.info("\nNext steps:")
+    logger.info(f"1. Open {VAULT_PATH} as a vault in Obsidian")
+    logger.info("2. Install recommended plugins: Dataview, Tasks, Templater")
+    logger.info("3. Update 06-Bibles/Gumroad_Launch_Bible.md with your actual context")
+    logger.info("4. Save conversation exports to 00-Inbox/[source]/ folders")
+    logger.info("5. Run: python pipeline.py")
 
 
 if __name__ == "__main__":

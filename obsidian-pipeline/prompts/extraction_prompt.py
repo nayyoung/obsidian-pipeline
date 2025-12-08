@@ -75,7 +75,25 @@ def build_extraction_prompt(
     source_date: str,
     bible_context: str = ""
 ) -> str:
-    """Build the complete user prompt for extraction."""
+    """Build the complete user prompt for extraction.
+    
+    Args:
+        conversation_text: The full text of the conversation to analyze
+        source: Source of the conversation (claude, chatgpt, gemini)
+        source_date: Date of the conversation in YYYY-MM-DD format
+        bible_context: Optional project context from Bible files
+        
+    Returns:
+        Formatted prompt string ready to send to the API
+        
+    Example:
+        >>> prompt = build_extraction_prompt(
+        ...     conversation_text="User: How do I...\\nAssistant: Here's how...",
+        ...     source="claude",
+        ...     source_date="2024-12-07",
+        ...     bible_context="Project goals: ..."
+        ... )
+    """
     return EXTRACTION_USER_PROMPT.format(
         bible_context=bible_context if bible_context else "(No project context provided)",
         source=source,
